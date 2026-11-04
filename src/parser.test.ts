@@ -122,4 +122,104 @@ describe('ArgParser.parse', () => {
     expect(result.rest).toEqual(['--unknown', 'value']);
     expect(result.arguments).toEqual(['--unknown', 'value']);
   });
+
+  it('parses nested commands and assigns each level its own result name and arguments', () => {
+    const parser = new ArgParser();
+    parser.addFlag('root');
+    const build = parser.addCommand('build');
+    build.addFlag('build');
+    const deep = build.addCommand('deep');
+    deep.addOption('target');
+
+    const result = parser.parse(['--root', 'build', '--build', 'deep', '--target', 'x', 'tail']);
+    expect(result.flag('root')).toBe(true);
+    expect(result.name).toBeNull();
+    expect(result.arguments).toEqual(['--root', 'build', '--build', 'deep', '--target', 'x', 'tail']);
+    expect(result.rest).toEqual([]);
+    expect(result.command?.name).toBe('build');
+    expect(result.command?.flag('build')).toBe(true);
+    expect(result.command?.arguments).toEqual(['--build', 'deep', '--target', 'x', 'tail']);
+    expect(result.command?.command?.name).toBe('deep');
+    expect(result.command?.command?.option('target')).toBe('x');
+    expect(result.command?.command?.rest).toEqual(['tail']);
+  });
+
+  it('makes parent options visible after command selection and prefers the innermost match', () => {
+    const parser = new ArgParser();
+    parser.addOption('shared');
+    parser.addFlag('root', { abbr: 'r' });
+    const child = parser.addCommand('child');
+    child.addOption('shared');
+    child.addFlag('childOnly');
+
+    const result = parser.parse(['child', '--shared', 'inner', '--root', '--childOnly']);
+    expect(result.option('shared')).toBeNull();
+    expect(result.flag('root')).toBe(true);
+    expect(result.command?.option('shared')).toBe('inner');
+    expect(result.command?.flag('childOnly')).toBe(true);
+
+    const parentOnly = parser.parse(['child', '--shared', 'outer', '-r']);
+    expect(parentOnly.command?.option('shared')).toBe('outer');
+  });
+
+  it('hands remaining args to the innermost child and permits parent options after it', () => {
+    const parser = new ArgParser();
+    parser.addFlag('global');
+    const child = parser.addCommand('run');
+    child.addFlag('local');
+    const result = parser.parse(['run', 'one', '--global', 'two', '--local', '--', 'three']);
+    expect(result.rest).toEqual([]);
+    expect(result.command?.rest).toEqual(['one', 'two', 'three']);
+    expect(result.flag('global')).toBe(true);
+    expect(result.command?.flag('local')).toBe(true);
+  });
+
+  it('selects default commands for empty input but leaves help for the current parser', () => {
+    const parser = new ArgParser();
+    const child = parser.addCommand('default');
+    child.addFlag('required', { defaultsTo: false });
+    parser.addFlag('help');
+    parser.defaultCommand = 'default';
+    expect(parser.parse([]).command?.name).toBe('default');
+    expect(parser.parse(['--help']).command).toBeUndefined();
+  });
+
+  it('recognizes option-looking command names and hands input to permissive children', () => {
+    const parser = new ArgParser();
+    parser.addCommand('-help');
+    expect(parser.parse(['-help']).command?.name).toBe('-help');
+
+    const permissive = new ArgParser();
+    permissive.addCommand('pass', ArgParser.allowAnything());
+    const result = permissive.parse(['pass', '--unknown', '-abc', '--', 'tail']);
+    expect(result.command?.rest).toEqual(['--unknown', '-abc', '--', 'tail']);
+    expect(result.command?.arguments).toEqual(['--unknown', '-abc', '--', 'tail']);
+  });
+
+  it('rejects positional arguments before a command and adds full command paths to errors', () => {
+    const parser = new ArgParser();
+    parser.addCommand('one').addCommand('two').addOption('known');
+    expect(() => parser.parse(['before', 'one'])).toThrow('Cannot specify arguments before a command.');
+    try {
+      parser.parse(['one', 'two', '--unknown']);
+      throw new Error('Expected parse to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({ commands: ['one', 'two'], argumentName: '--unknown' });
+    }
+  });
+
+  it('suppresses mandatory option checks in help contexts and uses the innermost trailing policy', () => {
+    const parser = new ArgParser();
+    parser.addOption('required', { mandatory: true });
+    parser.addFlag('help');
+    expect(parser.parse(['--help']).flag('help')).toBe(true);
+
+    const root = new ArgParser({ allowTrailingOptions: true });
+    root.addFlag('global');
+    const child = root.addCommand('child', new ArgParser({ allowTrailingOptions: false }));
+    child.addFlag('local');
+    const result = root.parse(['child', '--global', 'value', '--local']);
+    expect(result.flag('global')).toBe(true);
+    expect(result.command?.rest).toEqual(['value', '--local']);
+  });
 });

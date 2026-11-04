@@ -7,7 +7,7 @@ export class ParsedArgResults implements ArgResultsContract {
   readonly name: string | null;
   readonly rest: readonly string[];
   readonly arguments: readonly string[];
-  readonly command = undefined;
+  readonly command: ArgResultsContract | undefined;
   private readonly parsed: ReadonlyMap<string, OptionValue>;
 
   constructor(
@@ -15,12 +15,15 @@ export class ParsedArgResults implements ArgResultsContract {
     parsed: ReadonlyMap<string, OptionValue>,
     rest: readonly string[],
     arguments_: readonly string[],
+    name: string | null = null,
+    command?: ArgResultsContract,
   ) {
     this.parsed = new Map([...parsed].map(([name, value]) => [
       name,
       Array.isArray(value) ? Object.freeze([...value]) : value,
     ]));
-    this.name = null;
+    this.name = name;
+    this.command = command;
     this.rest = Object.freeze([...rest]);
     this.arguments = Object.freeze([...arguments_]);
   }

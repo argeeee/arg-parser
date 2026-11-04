@@ -9,67 +9,150 @@ type ParsedOptionValue = boolean | string | string[];
 /** Implements token parsing while keeping all mutable state local to a parse. */
 export class Parser {
   private readonly parsed = new Map<string, ParsedOptionValue>();
-  private readonly rest: string[] = [];
+  private readonly rest: string[];
   private index = 0;
   private readonly args: readonly string[];
 
-  constructor(private readonly grammar: ArgParser, arguments_: Iterable<string>) {
+  constructor(
+    private readonly grammar: ArgParser,
+    arguments_: Iterable<string>,
+    private readonly name: string | null = null,
+    private readonly parent?: Parser,
+    inheritedRest: readonly string[] = [],
+  ) {
     this.args = [...arguments_];
+    this.rest = [...inheritedRest];
   }
 
   parse(): ParsedArgResults {
     if (this.grammar.allowsAnything) {
-      return new ParsedArgResults(this.grammar, this.parsed, this.args, this.args);
+      return new ParsedArgResults(this.grammar, this.parsed, this.args, this.args, this.name);
     }
 
+    let selectedCommand: { name: string; parser: ArgParser } | undefined;
     while (this.index < this.args.length) {
       const arg = this.args[this.index]!;
       if (arg === '--') {
         this.index++;
         break;
       }
+
+      // A command takes precedence over option recognition so names such as
+      // "-help" can still be registered as commands.
+      const commandParser = this.grammar.commands.get(arg);
+      if (commandParser !== undefined) {
+        selectedCommand = { name: arg, parser: commandParser };
+        this.index++;
+        break;
+      }
+
+      const defaultCommand = this.grammar.defaultCommand;
+      if (defaultCommand !== undefined && arg !== '-h' && arg !== '--help') {
+        const parser = this.grammar.commands.get(defaultCommand);
+        if (parser !== undefined) {
+          selectedCommand = { name: defaultCommand, parser };
+          break;
+        }
+      }
+
       if (this.parseSolo(arg) || this.parseLong(arg) || this.parseShortGroup(arg)) continue;
       if (!this.grammar.allowTrailingOptions) break;
       this.rest.push(arg);
       this.index++;
     }
 
-    this.rest.push(...this.args.slice(this.index));
-    this.validateMandatoryAndCallCallbacks();
-    return new ParsedArgResults(this.grammar, this.parsed, this.rest, this.args);
+    if (selectedCommand === undefined && this.rest.length === 0 && !this.parsed.has('help')) {
+      const defaultCommand = this.grammar.defaultCommand;
+      const parser = defaultCommand === undefined ? undefined : this.grammar.commands.get(defaultCommand);
+      if (defaultCommand !== undefined && parser !== undefined) {
+        selectedCommand = { name: defaultCommand, parser };
+      }
+    }
+
+    let commandResults: ParsedArgResults | undefined;
+    if (selectedCommand !== undefined) {
+      if (this.rest.length > 0) {
+        this.fail('Cannot specify arguments before a command.', selectedCommand.name);
+      }
+      const child = new Parser(
+        selectedCommand.parser,
+        this.args.slice(this.index),
+        selectedCommand.name,
+        this,
+        this.rest,
+      );
+      try {
+        commandResults = child.parse();
+      } catch (error) {
+        if (!(error instanceof ArgParserException)) throw error;
+        throw new ArgParserException(
+          error.message,
+          [selectedCommand.name, ...error.commands],
+          error.argumentName,
+          error.source,
+          error.offset,
+        );
+      }
+      this.rest.length = 0;
+    }
+
+    this.validateMandatoryAndCallCallbacks(selectedCommand?.name);
+    if (selectedCommand === undefined) this.rest.push(...this.args.slice(this.index));
+    return new ParsedArgResults(
+      this.grammar,
+      this.parsed,
+      this.rest,
+      this.args,
+      this.name,
+      commandResults,
+    );
+  }
+
+  private findByAbbreviation(abbreviation: string): { owner: Parser; option: Option } | undefined {
+    const option = this.grammar.findByAbbreviation(abbreviation);
+    if (option !== undefined) return { owner: this, option };
+    return this.parent?.findByAbbreviation(abbreviation);
+  }
+
+  private findByNameOrAlias(name: string): { owner: Parser; option: Option } | undefined {
+    const option = this.grammar.findByNameOrAlias(name);
+    if (option !== undefined) return { owner: this, option };
+    return this.parent?.findByNameOrAlias(name);
   }
 
   private parseSolo(arg: string): boolean {
     if (!/^-([A-Za-z0-9])$/u.test(arg)) return false;
     const abbreviation = arg[1]!;
-    const option = this.grammar.findByAbbreviation(abbreviation);
-    if (option === undefined) this.fail(`Could not find an option or flag "-${abbreviation}".`, `-${abbreviation}`);
+    const found = this.findByAbbreviation(abbreviation);
+    if (found === undefined) this.fail(`Could not find an option or flag "-${abbreviation}".`, `-${abbreviation}`);
     this.index++;
-    if (option.type === OptionType.flag) this.parsed.set(option.name, true);
-    else this.setValue(option, this.takeValue(`-${abbreviation}`), `-${abbreviation}`);
+    if (found.option.type === OptionType.flag) found.owner.parsed.set(found.option.name, true);
+    else found.owner.setValue(found.option, this.takeValue(`-${abbreviation}`), `-${abbreviation}`);
     return true;
   }
 
   private parseShortGroup(arg: string): boolean {
-    if (!/^-([A-Za-z0-9]+)([^\r\n]*)$/u.test(arg) || arg.startsWith('--')) return false;
-    const match = /^-([A-Za-z0-9]+)([^\r\n]*)$/u.exec(arg)!;
+    const match = /^-([A-Za-z0-9]+)([^\r\n]*)$/u.exec(arg);
+    if (match === null || arg.startsWith('--')) return false;
     const letters = match[1]!;
     const attached = match[2]!;
-    const first = this.grammar.findByAbbreviation(letters[0]!);
+    const first = this.findByAbbreviation(letters[0]!);
     if (first === undefined) this.fail(`Could not find an option with short name "-${letters[0]}".`, `-${letters[0]}`);
-    if (first.type !== OptionType.flag) {
+    if (first.option.type !== OptionType.flag) {
       this.index++;
-      this.setValue(first, `${letters.slice(1)}${attached}`, `-${letters[0]}`);
+      first.owner.setValue(first.option, `${letters.slice(1)}${attached}`, `-${letters[0]}`);
       return true;
     }
     if (attached.length > 0) {
       this.fail(`Option "-${letters[0]}" is a flag and cannot handle value "${letters.slice(1)}${attached}".`, `-${letters[0]}`);
     }
     for (const abbreviation of letters) {
-      const option = this.grammar.findByAbbreviation(abbreviation);
-      if (option === undefined) this.fail(`Could not find an option with short name "-${abbreviation}".`, `-${abbreviation}`);
-      if (option.type !== OptionType.flag) this.fail(`Option "-${abbreviation}" must be a flag to be in a collapsed "-".`, `-${abbreviation}`);
-      this.parsed.set(option.name, true);
+      const found = this.findByAbbreviation(abbreviation);
+      if (found === undefined) this.fail(`Could not find an option with short name "-${abbreviation}".`, `-${abbreviation}`);
+      if (found.option.type !== OptionType.flag) {
+        this.fail(`Option "-${abbreviation}" must be a flag to be in a collapsed "-".`, `-${abbreviation}`);
+      }
+      found.owner.parsed.set(found.option.name, true);
     }
     this.index++;
     return true;
@@ -82,24 +165,24 @@ export class Parser {
     const name = match[1]!;
     const hasAttached = arg.includes('=');
     const value = match[2];
-    let option = this.grammar.findByNameOrAlias(name);
-    if (option !== undefined) {
+    let found = this.findByNameOrAlias(name);
+    if (found !== undefined) {
       this.index++;
-      if (option.type === OptionType.flag) {
+      if (found.option.type === OptionType.flag) {
         if (hasAttached) this.fail(`Flag option "--${name}" should not be given a value.`, `--${name}`);
-        this.parsed.set(option.name, true);
+        found.owner.parsed.set(found.option.name, true);
       } else {
-        this.setValue(option, hasAttached ? value! : this.takeValue(`--${name}`), `--${name}`);
+        found.owner.setValue(found.option, hasAttached ? value! : this.takeValue(`--${name}`), `--${name}`);
       }
       return true;
     }
     if (name.startsWith('no-')) {
-      option = this.grammar.findByNameOrAlias(name.slice(3));
-      if (option !== undefined) {
+      found = this.findByNameOrAlias(name.slice(3));
+      if (found !== undefined) {
         this.index++;
-        if (option.type !== OptionType.flag) this.fail(`Cannot negate non-flag option "--${name}".`, `--${name}`);
-        if (!option.negatable) this.fail(`Cannot negate option "--${name}".`, `--${name}`);
-        this.parsed.set(option.name, false);
+        if (found.option.type !== OptionType.flag) this.fail(`Cannot negate non-flag option "--${name}".`, `--${name}`);
+        if (!found.option.negatable) this.fail(`Cannot negate option "--${name}".`, `--${name}`);
+        found.owner.parsed.set(found.option.name, false);
         return true;
       }
     }
@@ -120,9 +203,7 @@ export class Parser {
       const next = current ?? [];
       const values = option.splitCommas ? value.split(',') : [value];
       for (const item of values) {
-        if (option.allowed !== undefined && !option.allowed.includes(item)) {
-          this.fail(`"${item}" is not an allowed value for option "${optionArg}".`, optionArg);
-        }
+        this.validateAllowed(option, item, optionArg);
         next.push(item);
       }
       this.parsed.set(option.name, next);
@@ -138,14 +219,14 @@ export class Parser {
     }
   }
 
-  private validateMandatoryAndCallCallbacks(): void {
+  private validateMandatoryAndCallCallbacks(commandName?: string): void {
+    const ignoreMandatoryOptions = this.parsed.has('help') || commandName === 'help';
     for (const [name, option] of this.grammar.options) {
       const value = this.parsed.get(name);
-      if (option.mandatory && value === undefined) {
+      if (!ignoreMandatoryOptions && option.mandatory && value === undefined) {
         throw new ArgParserException(`Option ${name} is mandatory.`, [], name);
       }
-      if (option.callback === undefined) continue;
-      option.invokeCallback(option.valueOrDefault(value));
+      if (option.callback !== undefined) option.invokeCallback(option.valueOrDefault(value as OptionValue));
     }
   }
 
