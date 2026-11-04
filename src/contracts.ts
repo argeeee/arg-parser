@@ -100,7 +100,7 @@ export interface ArgResultsOptions {
   readonly arguments: readonly string[];
 }
 
-/** Public parser contract. Concrete grammar and parsing are implemented in later migration phases. */
+/** Parses command-line arguments according to a registered option and command grammar. */
 export class ArgParser {
   private readonly optionDefinitions = new Map<string, Option>();
   private readonly commandDefinitions = new Map<string, ArgParser>();

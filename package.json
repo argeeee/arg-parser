@@ -1,7 +1,7 @@
 {
   "name": "arg-parser",
   "version": "1.0.0",
-  "description": "",
+  "description": "TypeScript command-line argument parsing with nested commands and usage generation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -24,12 +24,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test:package": "npm run build && node test/package-smoke.mjs",
+    "check:example": "npm run build && tsc -p tsconfig.example.json && node .example-dist/examples/basic.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["cli", "arguments", "parser", "command-line"],
+  "license": "BSD-3-Clause",
   "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "files": ["dist", "README.md", "LICENSE"],
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
