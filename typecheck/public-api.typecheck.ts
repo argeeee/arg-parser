@@ -1,15 +1,15 @@
-import { ArgParser } from './args.js';
-import { Command, CommandRunner } from './command_runner.js';
+import { ArgParser } from '../src/args.js';
+import { Command, CommandRunner } from '../src/command_runner.js';
 import type {
   AddFlagOptions,
   AddMultiOptionOptions,
   AddOptionOptions,
   ArgParserOptions,
   ArgResults,
-} from './args.js';
+} from '../src/args.js';
 
-// This module is included in `tsc` builds and serves as compile-time coverage
-// for the public API while implementations are migrated in later phases.
+// Included only by tsconfig.typecheck.json; this fixture must not be emitted
+// as part of the published package build.
 abstract class ParserSubclass extends ArgParser {
   constructor(options?: ArgParserOptions) {
     super(options);
@@ -60,11 +60,13 @@ export function checkPublicApi(
   parser.parse(['--verbose']);
   parser.findByAbbreviation('v');
   parser.findByNameOrAlias('verbose');
+  const allowsAnything: boolean = parser.allowsAnything;
   parser.defaultFor('verbose');
   parser.getDefault('verbose');
   ArgParser.allowAnything();
 
   const results: ArgResults = runner.parse(['compile']);
+  const topLevelName: string | null = results.name;
   runner.addCommand(command, { isDefault: true });
   runner.run(['compile']);
   runner.runCommand(results);
@@ -81,6 +83,7 @@ export function checkPublicApi(
   results.option('format');
   results.multiOption('include');
   results.wasParsed('verbose');
+  void [allowsAnything, topLevelName];
 }
 
 // @ts-expect-error `allowAnything` is a factory, not a constructor option.

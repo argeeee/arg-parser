@@ -89,7 +89,8 @@ export type OptionConfig =
 export type OptionValue = boolean | string | readonly string[] | null | undefined;
 
 export interface ArgResultsOptions {
-  readonly name: string;
+  /** The command name, or `null` for the top-level result. */
+  readonly name: string | null;
   readonly options: ReadonlyMap<string, Option>;
   readonly values: ReadonlyMap<string, OptionValue>;
   readonly rest: readonly string[];
@@ -108,6 +109,7 @@ export abstract class ArgParser {
   abstract readonly options: ReadonlyMap<string, Option>;
   abstract readonly commands: ReadonlyMap<string, ArgParser>;
   abstract readonly allowTrailingOptions: boolean;
+  abstract readonly allowsAnything: boolean;
   abstract readonly usageLineLength: number | undefined;
   abstract defaultCommand: string | undefined;
   abstract readonly usage: string;
@@ -125,7 +127,8 @@ export abstract class ArgParser {
 
 /** Public parsed-result contract. */
 export abstract class ArgResults {
-  abstract readonly name: string;
+  /** The command name, or `null` for the top-level result. */
+  abstract readonly name: string | null;
   abstract readonly rest: readonly string[];
   abstract readonly arguments: readonly string[];
   abstract readonly command: ArgResults | undefined;
