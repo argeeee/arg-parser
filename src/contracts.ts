@@ -1,5 +1,5 @@
 import { Option, OptionType, type OptionDefinition } from './option.js';
-import { ReadonlyMapSnapshot } from './readonly_map.js';
+import { ReadonlyMapView } from './readonly_map.js';
 
 export interface ArgParserOptions {
   readonly allowTrailingOptions?: boolean;
@@ -104,6 +104,8 @@ export class ArgParser {
   private readonly commandDefinitions = new Map<string, ArgParser>();
   private readonly aliasNames = new Map<string, string>();
   private readonly separators: string[] = [];
+  private readonly optionView: ReadonlyMap<string, Option>;
+  private readonly commandView: ReadonlyMap<string, ArgParser>;
   readonly allowTrailingOptions: boolean;
   readonly usageLineLength: number | undefined;
   private defaultCommandValue: string | undefined;
@@ -111,6 +113,8 @@ export class ArgParser {
   constructor(options: ArgParserOptions = {}) {
     this.allowTrailingOptions = options.allowTrailingOptions ?? true;
     this.usageLineLength = options.usageLineLength;
+    this.optionView = new ReadonlyMapView(this.optionDefinitions);
+    this.commandView = new ReadonlyMapView(this.commandDefinitions);
   }
 
   /** Creates a parser that treats all input as positional arguments. */
@@ -118,8 +122,8 @@ export class ArgParser {
     return new AllowAnythingArgParser();
   }
 
-  get options(): ReadonlyMap<string, Option> { return new ReadonlyMapSnapshot(this.optionDefinitions); }
-  get commands(): ReadonlyMap<string, ArgParser> { return new ReadonlyMapSnapshot(this.commandDefinitions); }
+  get options(): ReadonlyMap<string, Option> { return this.optionView; }
+  get commands(): ReadonlyMap<string, ArgParser> { return this.commandView; }
   get allowsAnything(): boolean { return false; }
   get defaultCommand(): string | undefined { return this.defaultCommandValue; }
   set defaultCommand(value: string | undefined) { this.defaultCommandValue = value; }

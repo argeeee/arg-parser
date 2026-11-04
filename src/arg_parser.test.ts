@@ -62,6 +62,24 @@ describe('ArgParser grammar registration', () => {
     expect(() => parser.addCommand('build')).toThrow('Duplicate command "build".');
   });
 
+  it('keeps previously acquired option and command views live and read-only', () => {
+    const parser = new ArgParser();
+    const optionsView = parser.options;
+    const commandsView = parser.commands;
+
+    parser.addFlag('verbose');
+    const child = parser.addCommand('build');
+
+    expect(parser.options).toBe(optionsView);
+    expect(parser.commands).toBe(commandsView);
+    expect(optionsView.has('verbose')).toBe(true);
+    expect(optionsView.size).toBe(1);
+    expect(commandsView.get('build')).toBe(child);
+    expect(commandsView.size).toBe(1);
+    expect((optionsView as Map<string, unknown>).set).toBeUndefined();
+    expect((commandsView as Map<string, unknown>).delete).toBeUndefined();
+  });
+
   it('rejects invalid names, abbreviations, collisions, and invalid constraints', () => {
     const parser = new ArgParser();
     for (const name of ['', '-bad', 'bad name', 'bad/name', 'bad\\name']) {

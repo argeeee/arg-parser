@@ -8,23 +8,48 @@ export const OptionType = {
 
 export type OptionType = (typeof OptionType)[keyof typeof OptionType];
 
-export interface OptionDefinition {
+interface BaseOptionDefinition {
   readonly name: string;
   readonly abbr?: string;
-  readonly type: OptionType;
-  readonly defaultsTo?: boolean | string | readonly string[] | null;
   readonly help?: string;
   readonly valueHelp?: string;
   readonly allowed?: Iterable<string>;
   readonly allowedHelp?: ReadonlyMap<string, string>;
-  readonly negatable?: boolean;
-  readonly hideNegatedUsage?: boolean;
-  readonly callback?: (value: any) => void;
   readonly splitCommas?: boolean;
   readonly mandatory?: boolean;
   readonly hide?: boolean;
   readonly aliases?: readonly string[];
 }
+
+export interface FlagOptionDefinition extends BaseOptionDefinition {
+  readonly type: typeof OptionType.flag;
+  readonly defaultsTo?: boolean | null;
+  readonly negatable?: boolean;
+  readonly hideNegatedUsage?: boolean;
+  readonly callback?: (value: boolean) => void;
+}
+
+export interface SingleOptionDefinition extends BaseOptionDefinition {
+  readonly type: typeof OptionType.single;
+  readonly defaultsTo?: string | null;
+  readonly callback?: (value: string | null) => void;
+}
+
+export interface MultiOptionDefinition extends BaseOptionDefinition {
+  readonly type: typeof OptionType.multiple;
+  readonly defaultsTo?: readonly string[] | null;
+  readonly callback?: (value: readonly string[]) => void;
+}
+
+export type OptionDefinition =
+  | FlagOptionDefinition
+  | SingleOptionDefinition
+  | MultiOptionDefinition;
+
+type OptionCallback =
+  | FlagOptionDefinition['callback']
+  | SingleOptionDefinition['callback']
+  | MultiOptionDefinition['callback'];
 
 /** Metadata and defaults for a registered command-line option. */
 export class Option {
@@ -39,7 +64,7 @@ export class Option {
   readonly allowedHelp: ReadonlyMap<string, string> | undefined;
   readonly negatable: boolean | undefined;
   readonly hideNegatedUsage: boolean | undefined;
-  readonly callback: OptionDefinition['callback'];
+  readonly callback: OptionCallback;
   readonly splitCommas: boolean;
   readonly mandatory: boolean;
   readonly hide: boolean;
@@ -73,8 +98,8 @@ export class Option {
     this.allowedHelp = definition.allowedHelp === undefined
       ? undefined
       : new ReadonlyMapSnapshot(definition.allowedHelp);
-    this.negatable = definition.negatable;
-    this.hideNegatedUsage = definition.hideNegatedUsage;
+    this.negatable = definition.type === OptionType.flag ? definition.negatable : undefined;
+    this.hideNegatedUsage = definition.type === OptionType.flag ? definition.hideNegatedUsage : undefined;
     this.callback = definition.callback;
     this.splitCommas = definition.splitCommas ?? definition.type === OptionType.multiple;
     this.mandatory = definition.mandatory ?? false;

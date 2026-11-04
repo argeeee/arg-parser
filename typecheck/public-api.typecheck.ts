@@ -7,6 +7,7 @@ import type {
   ArgParserOptions,
   ArgResults,
 } from '../src/args.js';
+import type { OptionDefinition } from '../src/option.js';
 
 // Included only by tsconfig.typecheck.json; this fixture must not be emitted
 // as part of the published package build.
@@ -85,6 +86,27 @@ export function checkPublicApi(
   results.wasParsed('verbose');
   void [allowsAnything, topLevelName];
 }
+
+function checkOptionCallbackNarrowing(definition: OptionDefinition): void {
+  switch (definition.type) {
+    case 'flag':
+      definition.callback?.(true);
+      // @ts-expect-error Flag callbacks accept booleans only.
+      definition.callback?.('enabled');
+      break;
+    case 'single':
+      definition.callback?.(null);
+      // @ts-expect-error Single option callbacks accept strings or null.
+      definition.callback?.(true);
+      break;
+    case 'multiple':
+      definition.callback?.(['one', 'two']);
+      // @ts-expect-error Multi-option callbacks accept string arrays only.
+      definition.callback?.('one');
+      break;
+  }
+}
+void checkOptionCallbackNarrowing;
 
 // @ts-expect-error `allowAnything` is a factory, not a constructor option.
 const invalidOptions: ArgParserOptions = { allowAnything: true };
