@@ -1,6 +1,7 @@
 import { Option, OptionType, type OptionDefinition } from './option.js';
 import { ReadonlyMapView } from './readonly_map.js';
 import { Parser } from './parser.js';
+import { generateUsage } from './usage.js';
 
 export interface ArgParserOptions {
   readonly allowTrailingOptions?: boolean;
@@ -104,7 +105,7 @@ export class ArgParser {
   private readonly optionDefinitions = new Map<string, Option>();
   private readonly commandDefinitions = new Map<string, ArgParser>();
   private readonly aliasNames = new Map<string, string>();
-  private readonly separators: string[] = [];
+  private readonly optionsAndSeparators: (Option | string)[] = [];
   private readonly optionView: ReadonlyMap<string, Option>;
   private readonly commandView: ReadonlyMap<string, ArgParser>;
   readonly allowTrailingOptions: boolean;
@@ -129,8 +130,7 @@ export class ArgParser {
   get defaultCommand(): string | undefined { return this.defaultCommandValue; }
   set defaultCommand(value: string | undefined) { this.defaultCommandValue = value; }
 
-  /** Usage rendering is implemented in the usage phase. */
-  get usage(): string { return ''; }
+  get usage(): string { return generateUsage(this.optionsAndSeparators, this.usageLineLength); }
 
   addCommand(name: string, parser?: ArgParser): ArgParser {
     if (this.commandDefinitions.has(name)) throw new TypeError(`Duplicate command "${name}".`);
@@ -165,7 +165,7 @@ export class ArgParser {
     });
   }
 
-  addSeparator(text: string): void { this.separators.push(text); }
+  addSeparator(text: string): void { this.optionsAndSeparators.push(text); }
 
   defaultFor(name: string): OptionValue {
     const option = this.findByNameOrAlias(name);
@@ -207,6 +207,7 @@ export class ArgParser {
     }
     const option = new Option({ ...definition, aliases });
     this.optionDefinitions.set(definition.name, option);
+    this.optionsAndSeparators.push(option);
     for (const alias of aliases) this.aliasNames.set(alias, definition.name);
   }
 }
