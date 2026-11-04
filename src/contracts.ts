@@ -1,4 +1,5 @@
-import { OptionType, type Option } from './option.js';
+import { Option, OptionType, type OptionDefinition } from './option.js';
+import { ReadonlyMapSnapshot } from './readonly_map.js';
 
 export interface ArgParserOptions {
   readonly allowTrailingOptions?: boolean;
@@ -98,31 +99,143 @@ export interface ArgResultsOptions {
 }
 
 /** Public parser contract. Concrete grammar and parsing are implemented in later migration phases. */
-export abstract class ArgParser {
-  constructor(options?: ArgParserOptions) {}
+export class ArgParser {
+  private readonly optionDefinitions = new Map<string, Option>();
+  private readonly commandDefinitions = new Map<string, ArgParser>();
+  private readonly aliasNames = new Map<string, string>();
+  private readonly separators: string[] = [];
+  readonly allowTrailingOptions: boolean;
+  readonly usageLineLength: number | undefined;
+  private defaultCommandValue: string | undefined;
+
+  constructor(options: ArgParserOptions = {}) {
+    this.allowTrailingOptions = options.allowTrailingOptions ?? true;
+    this.usageLineLength = options.usageLineLength;
+  }
 
   /** Creates a parser that treats all input as positional arguments. */
   static allowAnything(): ArgParser {
-    throw new Error('ArgParser.allowAnything() is not implemented yet.');
+    return new AllowAnythingArgParser();
   }
 
-  abstract readonly options: ReadonlyMap<string, Option>;
-  abstract readonly commands: ReadonlyMap<string, ArgParser>;
-  abstract readonly allowTrailingOptions: boolean;
-  abstract readonly allowsAnything: boolean;
-  abstract readonly usageLineLength: number | undefined;
-  abstract defaultCommand: string | undefined;
-  abstract readonly usage: string;
-  abstract addCommand(name: string, parser?: ArgParser): ArgParser;
-  abstract addFlag(name: string, options?: AddFlagOptions): void;
-  abstract addOption(name: string, options?: AddOptionOptions): void;
-  abstract addMultiOption(name: string, options?: AddMultiOptionOptions): void;
-  abstract addSeparator(text: string): void;
-  abstract defaultFor(name: string): OptionValue;
-  abstract getDefault(name: string): OptionValue;
-  abstract findByAbbreviation(abbr: string): Option | undefined;
-  abstract findByNameOrAlias(name: string): Option | undefined;
-  abstract parse(arguments_: Iterable<string>): ArgResults;
+  get options(): ReadonlyMap<string, Option> { return new ReadonlyMapSnapshot(this.optionDefinitions); }
+  get commands(): ReadonlyMap<string, ArgParser> { return new ReadonlyMapSnapshot(this.commandDefinitions); }
+  get allowsAnything(): boolean { return false; }
+  get defaultCommand(): string | undefined { return this.defaultCommandValue; }
+  set defaultCommand(value: string | undefined) { this.defaultCommandValue = value; }
+
+  /** Usage rendering is implemented in the usage phase. */
+  get usage(): string { return ''; }
+
+  addCommand(name: string, parser?: ArgParser): ArgParser {
+    if (this.commandDefinitions.has(name)) throw new TypeError(`Duplicate command "${name}".`);
+    const child = parser ?? new ArgParser();
+    this.commandDefinitions.set(name, child);
+    return child;
+  }
+
+  addFlag(name: string, options: AddFlagOptions = {}): void {
+    this.registerOption({
+      type: OptionType.flag,
+      name,
+      ...options,
+      defaultsTo: options.defaultsTo === undefined ? false : options.defaultsTo,
+      negatable: options.negatable ?? true,
+      mandatory: false,
+    });
+  }
+
+  addOption(name: string, options: AddOptionOptions = {}): void {
+    this.registerOption({ type: OptionType.single, name, ...options });
+  }
+
+  addMultiOption(name: string, options: AddMultiOptionOptions = {}): void {
+    this.registerOption({
+      type: OptionType.multiple,
+      name,
+      ...options,
+      defaultsTo: options.defaultsTo === undefined ? [] : [...options.defaultsTo],
+      splitCommas: options.splitCommas ?? true,
+      mandatory: false,
+    });
+  }
+
+  addSeparator(text: string): void { this.separators.push(text); }
+
+  defaultFor(name: string): OptionValue {
+    const option = this.findByNameOrAlias(name);
+    if (option === undefined) throw new TypeError(`No option named ${name}`);
+    return option.defaultsTo;
+  }
+
+  getDefault(name: string): OptionValue { return this.defaultFor(name); }
+
+  findByAbbreviation(abbr: string): Option | undefined {
+    return [...this.optionDefinitions.values()].find((option) => option.abbr === abbr);
+  }
+
+  findByNameOrAlias(name: string): Option | undefined {
+    return this.optionDefinitions.get(this.aliasNames.get(name) ?? name);
+  }
+
+  /** Token parsing is implemented in the next migration phase. */
+  parse(_arguments: Iterable<string>): ArgResults {
+    throw new Error('ArgParser.parse() is not implemented yet.');
+  }
+
+  protected registerOption(definition: OptionDefinition): void {
+    const aliases = definition.aliases ?? [];
+    const allNames = [definition.name, ...aliases];
+    if (allNames.some((name) => this.findByNameOrAlias(name) !== undefined)) {
+      throw new TypeError(`Duplicate option or alias "${definition.name}".`);
+    }
+    if (definition.abbr !== undefined) {
+      const existing = this.findByAbbreviation(definition.abbr);
+      if (existing !== undefined) {
+        throw new TypeError(`Abbreviation "${definition.abbr}" is already used by "${existing.name}".`);
+      }
+    }
+    if (definition.mandatory && definition.defaultsTo !== undefined && definition.defaultsTo !== null) {
+      throw new TypeError(`The option ${definition.name} cannot be mandatory and have a default value.`);
+    }
+    if (definition.type === OptionType.flag && !definition.negatable && definition.hideNegatedUsage) {
+      throw new TypeError(`The option ${definition.name} cannot have \`hideNegatedUsage\` without being negatable.`);
+    }
+    const option = new Option({ ...definition, aliases });
+    this.optionDefinitions.set(definition.name, option);
+    for (const alias of aliases) this.aliasNames.set(alias, definition.name);
+  }
+}
+
+class AllowAnythingArgParser extends ArgParser {
+  constructor() { super({ allowTrailingOptions: false }); }
+  override get allowsAnything(): boolean { return true; }
+  override get usage(): string { return ''; }
+  override get defaultCommand(): string | undefined { return undefined; }
+  override set defaultCommand(_value: string | undefined) {
+    throw new TypeError("ArgParser.allowAnything().defaultCommand= isn't supported.");
+  }
+  override addCommand(_name: string, _parser?: ArgParser): ArgParser {
+    throw new TypeError("ArgParser.allowAnything().addCommands() isn't supported.");
+  }
+  override addFlag(_name: string, _options?: AddFlagOptions): void {
+    throw new TypeError("ArgParser.allowAnything().addFlag() isn't supported.");
+  }
+  override addOption(_name: string, _options?: AddOptionOptions): void {
+    throw new TypeError("ArgParser.allowAnything().addOption() isn't supported.");
+  }
+  override addMultiOption(_name: string, _options?: AddMultiOptionOptions): void {
+    throw new TypeError("ArgParser.allowAnything().addMultiOption() isn't supported.");
+  }
+  override addSeparator(_text: string): void {
+    throw new TypeError("ArgParser.allowAnything().addSeparator() isn't supported.");
+  }
+  override defaultFor(name: string): OptionValue { throw new TypeError(`No option named ${name}`); }
+  override findByAbbreviation(_abbr: string): Option | undefined { return undefined; }
+  override findByNameOrAlias(_name: string): Option | undefined { return undefined; }
+  protected override registerOption(_definition: OptionDefinition): void {
+    throw new TypeError('Options are not supported by ArgParser.allowAnything().');
+  }
 }
 
 /** Public parsed-result contract. */
