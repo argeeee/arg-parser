@@ -1,5 +1,5 @@
 {
-  "name": "@arge/arg-parser",
+  "name": "@argetim/arg-parser",
   "version": "1.0.0",
   "description": "TypeScript command-line argument parsing with nested commands and usage generation",
   "repository": {

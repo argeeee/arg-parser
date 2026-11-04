@@ -1,4 +1,4 @@
-import { ArgParser } from '@arge/arg-parser/args';
+import { ArgParser } from '@argetim/arg-parser/args';
 
 const parser = new ArgParser();
 parser.addOption('format', {
