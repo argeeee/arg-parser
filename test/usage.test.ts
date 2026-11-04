@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ArgParser } from './args.js';
+import { ArgParser } from '../src/args.js';
 
 describe('ArgParser usage', () => {
   it('aligns abbreviations, options, help, defaults, and insertion order', () => {

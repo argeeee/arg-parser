@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Command, CommandRunner, UsageException } from './command_runner.js';
+import { Command, CommandRunner, UsageException } from '../src/command_runner.js';
 
 class EchoCommand extends Command<string> {
   readonly name = 'echo';

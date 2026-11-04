@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ArgParser } from './args.js';
-import { OptionType } from './option.js';
+import { ArgParser } from '../src/args.js';
+import { OptionType } from '../src/option.js';
 
 describe('ArgParser grammar registration', () => {
   it('registers flags, single options, and multi-options in insertion order', () => {

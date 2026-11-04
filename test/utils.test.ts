@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { padRight, wrapText, wrapTextAsLines } from './utils.js';
+import { padRight, wrapText, wrapTextAsLines } from '../src/utils.js';
 
 describe('usage text utilities', () => {
   it('pads only when needed', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ArgParser } from './args.js';
-import { ArgParserException } from './errors.js';
+import { ArgParser } from '../src/args.js';
+import { ArgParserException } from '../src/errors.js';
 
 describe('ArgParser.parse', () => {
   it('parses long options, attached values, aliases, and negated flags', () => {

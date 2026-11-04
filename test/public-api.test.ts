@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import * as root from './index.js';
-import * as args from './args.js';
-import * as commandRunner from './command_runner.js';
-import type { FlagOptionConfig, MultiOptionConfig, SingleOptionConfig } from './args.js';
+import * as root from '../src/index.js';
+import * as args from '../src/args.js';
+import * as commandRunner from '../src/command_runner.js';
+import type { FlagOptionConfig, MultiOptionConfig, SingleOptionConfig } from '../src/args.js';
 
 describe('public entry points', () => {
   it('exposes the args API from the root and dedicated args entry point', () => {
