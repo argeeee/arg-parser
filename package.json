@@ -4,6 +4,23 @@
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./args": {
+      "types": "./dist/args.d.ts",
+      "require": "./dist/args.js",
+      "default": "./dist/args.js"
+    },
+    "./command_runner": {
+      "types": "./dist/command_runner.d.ts",
+      "require": "./dist/command_runner.js",
+      "default": "./dist/command_runner.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
