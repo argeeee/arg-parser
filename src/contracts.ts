@@ -261,56 +261,5 @@ export abstract class ArgResults {
 export interface CommandRunnerOptions {
   readonly usageLineLength?: number;
   readonly suggestionDistanceLimit?: number;
-}
-
-/** Base type for commands dispatched by a command runner. */
-export abstract class Command<TResult = unknown> {
-  abstract readonly name: string;
-  abstract readonly description: string;
-  abstract readonly summary: string;
-  abstract readonly category: string;
-  abstract readonly invocation: string;
-  abstract readonly parent: Command<TResult> | undefined;
-  abstract readonly runner: CommandRunner<TResult> | undefined;
-  abstract readonly globalResults: ArgResults | undefined;
-  abstract readonly argResults: ArgResults | undefined;
-  abstract readonly argParser: ArgParser;
-  abstract readonly usage: string;
-  abstract readonly usageFooter: string | undefined;
-  abstract readonly subcommands: ReadonlyMap<string, Command<TResult>>;
-  abstract readonly hidden: boolean;
-  abstract readonly takesArguments: boolean;
-  abstract readonly aliases: readonly string[];
-  abstract readonly suggestionAliases: readonly string[];
-  abstract run(): TResult | null | Promise<TResult | null>;
-  abstract addSubcommand(command: Command<TResult>, options?: { readonly isDefault?: boolean }): void;
-  abstract printUsage(): void;
-  abstract usageException(message: string): never;
-}
-
-/** Public command-runner contract; dispatch behavior is implemented in a later phase. */
-export abstract class CommandRunner<TResult = unknown> {
-  constructor(
-    executableName: string,
-    description: string,
-    options?: CommandRunnerOptions,
-  ) {}
-
-  abstract readonly executableName: string;
-  abstract readonly description: string;
-  abstract readonly invocation: string;
-  abstract readonly argParser: ArgParser;
-  abstract readonly usage: string;
-  abstract readonly usageFooter: string | undefined;
-  abstract readonly commands: ReadonlyMap<string, Command<TResult>>;
-  abstract readonly suggestionDistanceLimit: number;
-  abstract printUsage(): void;
-  abstract usageException(message: string): never;
-  abstract addCommand(
-    command: Command<TResult>,
-    options?: { readonly isDefault?: boolean },
-  ): void;
-  abstract parse(arguments_: Iterable<string>): ArgResults;
-  abstract run(arguments_: Iterable<string>): Promise<TResult | null>;
-  abstract runCommand(topLevelResults: ArgResults): Promise<TResult | null>;
+  readonly output?: (text: string) => void;
 }
