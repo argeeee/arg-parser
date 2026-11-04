@@ -48,11 +48,8 @@ export class Parser {
 
       const defaultCommand = this.grammar.defaultCommand;
       if (defaultCommand !== undefined && arg !== '-h' && arg !== '--help') {
-        const parser = this.grammar.commands.get(defaultCommand);
-        if (parser !== undefined) {
-          selectedCommand = { name: defaultCommand, parser };
-          break;
-        }
+        selectedCommand = this.resolveDefaultCommand(defaultCommand);
+        break;
       }
 
       if (this.parseSolo(arg) || this.parseLong(arg) || this.parseShortGroup(arg)) continue;
@@ -63,10 +60,7 @@ export class Parser {
 
     if (selectedCommand === undefined && this.rest.length === 0 && !this.parsed.has('help')) {
       const defaultCommand = this.grammar.defaultCommand;
-      const parser = defaultCommand === undefined ? undefined : this.grammar.commands.get(defaultCommand);
-      if (defaultCommand !== undefined && parser !== undefined) {
-        selectedCommand = { name: defaultCommand, parser };
-      }
+      if (defaultCommand !== undefined) selectedCommand = this.resolveDefaultCommand(defaultCommand);
     }
 
     let commandResults: ParsedArgResults | undefined;
@@ -106,6 +100,14 @@ export class Parser {
       this.name,
       commandResults,
     );
+  }
+
+  private resolveDefaultCommand(name: string): { name: string; parser: ArgParser } {
+    const parser = this.grammar.commands.get(name);
+    if (parser === undefined) {
+      throw new ArgParserException(`Default command "${name}" is not registered.`);
+    }
+    return { name, parser };
   }
 
   private findByAbbreviation(abbreviation: string): { owner: Parser; option: Option } | undefined {

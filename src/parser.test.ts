@@ -184,6 +184,14 @@ describe('ArgParser.parse', () => {
     expect(parser.parse(['--help']).command).toBeUndefined();
   });
 
+  it('reports an unregistered default command for empty and ordinary input', () => {
+    const parser = new ArgParser();
+    parser.defaultCommand = 'missing';
+
+    expect(() => parser.parse([])).toThrow('Default command "missing" is not registered.');
+    expect(() => parser.parse(['input'])).toThrow('Default command "missing" is not registered.');
+  });
+
   it('recognizes option-looking command names and hands input to permissive children', () => {
     const parser = new ArgParser();
     parser.addCommand('-help');
