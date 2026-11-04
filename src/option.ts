@@ -1,3 +1,4 @@
+import type { OptionValue } from './contracts.js';
 import { ReadonlyMapSnapshot } from './readonly_map.js';
 
 export const OptionType = {
@@ -68,6 +69,9 @@ export class Option {
   readonly splitCommas: boolean;
   readonly mandatory: boolean;
   readonly hide: boolean;
+  private readonly flagCallback: FlagOptionDefinition['callback'];
+  private readonly singleCallback: SingleOptionDefinition['callback'];
+  private readonly multiCallback: MultiOptionDefinition['callback'];
 
   constructor(definition: OptionDefinition) {
     validateName(definition.name);
@@ -101,6 +105,9 @@ export class Option {
     this.negatable = definition.type === OptionType.flag ? definition.negatable : undefined;
     this.hideNegatedUsage = definition.type === OptionType.flag ? definition.hideNegatedUsage : undefined;
     this.callback = definition.callback;
+    this.flagCallback = definition.type === OptionType.flag ? definition.callback : undefined;
+    this.singleCallback = definition.type === OptionType.single ? definition.callback : undefined;
+    this.multiCallback = definition.type === OptionType.multiple ? definition.callback : undefined;
     this.splitCommas = definition.splitCommas ?? definition.type === OptionType.multiple;
     this.mandatory = definition.mandatory ?? false;
     this.hide = definition.hide ?? false;
@@ -111,11 +118,28 @@ export class Option {
   get isSingle(): boolean { return this.type === OptionType.single; }
   get isMultiple(): boolean { return this.type === OptionType.multiple; }
 
-  valueOrDefault(value: unknown): unknown {
+  valueOrDefault(value: OptionValue): OptionValue {
     if (value !== null && value !== undefined) return value;
     if (this.isMultiple) return this.defaultsTo ?? Object.freeze([]);
     return this.defaultsTo;
   }
+
+  invokeCallback(value: OptionValue): void {
+    switch (this.type) {
+      case OptionType.flag:
+        if (typeof value === 'boolean') this.flagCallback?.(value);
+        return;
+      case OptionType.single:
+        this.singleCallback?.(typeof value === 'string' ? value : null);
+        return;
+      case OptionType.multiple:
+        if (isStringArray(value)) this.multiCallback?.(value);
+    }
+  }
+}
+
+function isStringArray(value: OptionValue): value is readonly string[] {
+  return Array.isArray(value) && value.every((item: unknown) => typeof item === 'string');
 }
 
 function validateName(name: string): void {

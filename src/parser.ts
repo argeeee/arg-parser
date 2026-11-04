@@ -4,9 +4,11 @@ import { ParsedArgResults } from './arg_results.js';
 import { ArgParserException } from './errors.js';
 import { OptionType, type Option } from './option.js';
 
+type ParsedOptionValue = boolean | string | string[];
+
 /** Implements token parsing while keeping all mutable state local to a parse. */
 export class Parser {
-  private readonly parsed = new Map<string, OptionValue>();
+  private readonly parsed = new Map<string, ParsedOptionValue>();
   private readonly rest: string[] = [];
   private index = 0;
   private readonly args: readonly string[];
@@ -111,7 +113,10 @@ export class Parser {
 
   private setValue(option: Option, value: string, optionArg: string): void {
     if (option.type === OptionType.multiple) {
-      const current = this.parsed.get(option.name) as string[] | undefined;
+      const current = this.parsed.get(option.name);
+      if (current !== undefined && !Array.isArray(current)) {
+        throw new TypeError(`Internal parser state for multi-option "${option.name}" is invalid.`);
+      }
       const next = current ?? [];
       const values = option.splitCommas ? value.split(',') : [value];
       for (const item of values) {
@@ -140,14 +145,7 @@ export class Parser {
         throw new ArgParserException(`Option ${name} is mandatory.`, [], name);
       }
       if (option.callback === undefined) continue;
-      const callbackValue = option.valueOrDefault(value);
-      if (option.type === OptionType.flag) {
-        (option.callback as ((value: boolean) => void) | undefined)?.(callbackValue as boolean);
-      } else if (option.type === OptionType.single) {
-        (option.callback as ((value: string | null) => void) | undefined)?.((callbackValue ?? null) as string | null);
-      } else {
-        (option.callback as ((value: readonly string[]) => void) | undefined)?.(callbackValue as readonly string[]);
-      }
+      option.invokeCallback(option.valueOrDefault(value));
     }
   }
 

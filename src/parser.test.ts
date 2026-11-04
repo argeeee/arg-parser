@@ -81,6 +81,20 @@ describe('ArgParser.parse', () => {
     expect(calls).toEqual(['flag:true', 'mode:safe', 'tags:']);
   });
 
+  it('dispatches callbacks with accumulated values matching each option type', () => {
+    const calls: string[] = [];
+    const parser = new ArgParser();
+    parser.addFlag('enabled', { callback: (value: boolean) => calls.push(`flag:${value}`) });
+    parser.addOption('mode', { callback: (value: string | null) => calls.push(`mode:${value}`) });
+    parser.addMultiOption('tag', {
+      callback: (value: readonly string[]) => calls.push(`tags:${value.join(',')}`),
+    });
+
+    parser.parse(['--enabled', '--mode=fast', '--tag=one', '--tag=two']);
+
+    expect(calls).toEqual(['flag:true', 'mode:fast', 'tags:one,two']);
+  });
+
   it('uses null for absent single values in generic access and callbacks', () => {
     let callbackValue: string | null | undefined = undefined;
     const parser = new ArgParser();
