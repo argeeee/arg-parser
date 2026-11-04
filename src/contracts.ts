@@ -1,5 +1,6 @@
 import { Option, OptionType, type OptionDefinition } from './option.js';
 import { ReadonlyMapView } from './readonly_map.js';
+import { Parser } from './parser.js';
 
 export interface ArgParserOptions {
   readonly allowTrailingOptions?: boolean;
@@ -182,9 +183,8 @@ export class ArgParser {
     return this.optionDefinitions.get(this.aliasNames.get(name) ?? name);
   }
 
-  /** Token parsing is implemented in the next migration phase. */
-  parse(_arguments: Iterable<string>): ArgResults {
-    throw new Error('ArgParser.parse() is not implemented yet.');
+  parse(arguments_: Iterable<string>): ArgResults {
+    return new Parser(this, arguments_).parse();
   }
 
   protected registerOption(definition: OptionDefinition): void {
