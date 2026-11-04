@@ -3,6 +3,9 @@ export { ArgParserException } from './errors.js';
 export { ArgResults } from './contracts.js';
 export { Option, OptionType } from './option.js';
 export type {
+  AddFlagOptions,
+  AddMultiOptionOptions,
+  AddOptionOptions,
   ArgParserOptions,
   ArgResultsOptions,
   FlagOptionConfig,
