@@ -4,6 +4,7 @@ import { UsageException } from './errors.js';
 import { wrapText } from './utils.js';
 import { generateCommandUsage } from './command_usage.js';
 import type { CommandRunner } from './command_runner_impl.js';
+import { commandNames } from './command_names.js';
 
 /** A subclassable command. Override `name`, `description`, and `run`. */
 export abstract class Command<TResult = unknown> {
@@ -97,15 +98,15 @@ export abstract class Command<TResult = unknown> {
   }
 
   addSubcommand(command: Command<TResult>, options: { readonly isDefault?: boolean } = {}): void {
-    this.ensureHelpOption();
-    command.ensureHelpOption();
     const isDefault = options.isDefault ?? false;
     if (isDefault && command.subcommands.size > 0) throw new TypeError('default command must be a leaf command');
     if (isDefault && this.argParser.defaultCommand !== undefined) throw new Error('default command already defined');
-    const names = [command.name, ...command.aliases];
+    const names = commandNames(command.name, command.aliases);
     if (names.some((name) => this._subcommands.has(name) || this.argParser.commands.has(name))) {
       throw new TypeError(`Duplicate command "${command.name}".`);
     }
+    this.ensureHelpOption();
+    command.ensureHelpOption();
     for (const name of names) {
       this.argParser.addCommand(name, command.argParser);
       this._subcommands.set(name, command);

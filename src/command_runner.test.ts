@@ -32,6 +32,19 @@ class SuggestedCommand extends Command<void> {
   override run(): void {}
 }
 
+class DuplicateNamesCommand extends Command<void> {
+  readonly name = 'duplicate';
+  readonly description = 'A command with duplicate aliases.';
+  override readonly aliases = ['duplicate', 'same', 'same'];
+  override run(): void {}
+}
+
+class EmptyParentCommand extends Command<void> {
+  readonly name = 'parent';
+  readonly description = 'A parent command.';
+  override run(): void {}
+}
+
 class FooterRunner extends CommandRunner<void> {
   override get usageFooter(): string { return 'See the docs.'; }
 }
@@ -166,5 +179,29 @@ Run "test help <command>" for more information about a command.`);
     expect(() => runner.addCommand(branch, { isDefault: true })).toThrow(/leaf command/);
     runner.addCommand(new EchoCommand());
     expect(() => runner.addCommand(new EchoCommand())).toThrow(/Duplicate command/);
+  });
+
+  it('rejects duplicate aliases before mutating runner registration state', () => {
+    const runner = new CommandRunner<void>('tool', 'A tool.');
+    const command = new DuplicateNamesCommand();
+    const commandsBefore = [...runner.commands];
+    const parserCommandsBefore = [...runner.argParser.commands];
+
+    expect(() => runner.addCommand(command)).toThrow(/Duplicate command "duplicate"/);
+    expect([...runner.commands]).toEqual(commandsBefore);
+    expect([...runner.argParser.commands]).toEqual(parserCommandsBefore);
+    expect(command.runner).toBeUndefined();
+  });
+
+  it('rejects duplicate aliases before mutating nested command registration state', () => {
+    const parent = new EmptyParentCommand();
+    const command = new DuplicateNamesCommand();
+    const subcommandsBefore = [...parent.subcommands];
+    const parserCommandsBefore = [...parent.argParser.commands];
+
+    expect(() => parent.addSubcommand(command)).toThrow(/Duplicate command "duplicate"/);
+    expect([...parent.subcommands]).toEqual(subcommandsBefore);
+    expect([...parent.argParser.commands]).toEqual(parserCommandsBefore);
+    expect(command.parent).toBeUndefined();
   });
 });

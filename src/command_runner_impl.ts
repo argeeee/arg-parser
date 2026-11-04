@@ -6,6 +6,7 @@ import { generateCommandUsage } from './command_usage.js';
 import { wrapText } from './utils.js';
 import { Command } from './command.js';
 import { HelpCommand } from './help_command.js';
+import { commandNames } from './command_names.js';
 
 /** Dispatches command line arguments to a tree of subclassable commands. */
 export class CommandRunner<TResult = unknown> {
@@ -56,7 +57,7 @@ export class CommandRunner<TResult = unknown> {
   usageException(message: string): never { throw new UsageException(message, this.usageWithoutDescription); }
 
   addCommand(command: Command<TResult>, options: { readonly isDefault?: boolean } = {}): void {
-    const names = [command.name, ...command.aliases];
+    const names = commandNames(command.name, command.aliases);
     if (options.isDefault && command.subcommands.size > 0) throw new TypeError('default command must be a leaf command');
     if (options.isDefault && this.argParser.defaultCommand !== undefined) throw new Error('default command already defined');
     if (names.some((name) => this.commandDefinitions.has(name) || this.argParser.commands.has(name))) {
