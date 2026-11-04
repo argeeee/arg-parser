@@ -10,11 +10,11 @@ for (const declaration of ['index.d.ts', 'args.d.ts', 'command_runner.d.ts']) {
   assert.equal(existsSync(`${packageRoot}/dist/${declaration}`), true, `missing dist/${declaration}`);
 }
 
-const root = require('arg-parser');
-const args = require('arg-parser/args');
-const commands = require('arg-parser/command_runner');
-const argsEsm = await import('arg-parser/args');
-const commandsEsm = await import('arg-parser/command_runner');
+const root = require('@arge/arg-parser');
+const args = require('@arge/arg-parser/args');
+const commands = require('@arge/arg-parser/command_runner');
+const argsEsm = await import('@arge/arg-parser/args');
+const commandsEsm = await import('@arge/arg-parser/command_runner');
 
 assert.equal(root.ArgParser, args.ArgParser);
 assert.equal(argsEsm.ArgParser, args.ArgParser);

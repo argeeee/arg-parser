@@ -1,6 +1,6 @@
-# arg-parser
+# @arge/arg-parser
 
-`arg-parser` is a TypeScript command-line argument parser for Node.js. It supports GNU and POSIX option forms, nested commands, typed option callbacks, and generated usage text.
+`@arge/arg-parser` is a TypeScript command-line argument parser for Node.js. It supports GNU and POSIX option forms, nested commands, typed option callbacks, and generated usage text.
 
 This package is a TypeScript port of Dart's [`args`](https://github.com/dart-lang/core/tree/main/pkgs/args) package. It retains the upstream BSD 3-Clause license and attribution; see [LICENSE](./LICENSE).
 
@@ -9,18 +9,18 @@ This package is a TypeScript port of Dart's [`args`](https://github.com/dart-lan
 Use Node.js 18 or newer. The package is published as CommonJS and includes declarations. TypeScript projects using `NodeNext` can import either public entry point:
 
 ```ts
-import { ArgParser } from 'arg-parser/args';
-import { Command, CommandRunner } from 'arg-parser/command_runner';
+import { ArgParser } from '@arge/arg-parser/args';
+import { Command, CommandRunner } from '@arge/arg-parser/command_runner';
 ```
 
-The root import (`arg-parser`) is an alias for the `args` API. The `command_runner` subpath also exports `UsageException`. There are no supported deep imports into implementation files.
+The root import (`@arge/arg-parser`) is an alias for the `args` API. The `command_runner` subpath also exports `UsageException`. There are no supported deep imports into implementation files.
 
 ## Parse options
 
 Create an `ArgParser`, register flags and values, then parse an iterable of strings. In a Node program, pass `process.argv.slice(2)`:
 
 ```ts
-import { ArgParser } from 'arg-parser/args';
+import { ArgParser } from '@arge/arg-parser/args';
 
 const parser = new ArgParser();
 parser.addOption('format', {
@@ -61,7 +61,7 @@ Set `allowTrailingOptions: false` when constructing a parser to stop option pars
 For applications with executable commands, subclass `Command` and register it with a `CommandRunner`. A runner handles command selection, built-in help, usage errors, aliases, and asynchronous `run()` implementations.
 
 ```ts
-import { Command, CommandRunner } from 'arg-parser/command_runner';
+import { Command, CommandRunner } from '@arge/arg-parser/command_runner';
 
 class GreetCommand extends Command<void> {
   readonly name = 'greet';
